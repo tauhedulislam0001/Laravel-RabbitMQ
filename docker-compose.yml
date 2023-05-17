@@ -1,0 +1,90 @@
+version: '3.9'
+services:
+
+    #PHP Service for first Laravel project
+    application:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        ports:
+            - "9003:9003"
+        container_name: application
+        restart: unless-stopped
+        tty: true
+        environment:
+            SERVICE_NAME: application
+            SERVICE_TAGS: dev
+            working_dir: /var/www/html
+        # volumes:
+        #     - /var/www/html
+        #     - ./php/laravel.ini:/usr/local/etc/php/conf.d/laravel.ini
+        networks:
+            - app-network
+
+    # RabbitMQ Service
+    rabbitmqs:
+        image: rabbitmq:3.8-management-alpine
+        container_name: rabbitmqs
+        restart: unless-stopped
+        ports:
+            - "56721:5672"
+            - "15674:15672"
+        networks:
+            - app-network
+
+    #Nginx Service
+    webservers:
+        image: nginx:alpine
+        container_name: webservers
+        restart: unless-stopped
+        tty: true
+        ports:
+        - "83:80"
+        - "4431:443"
+        volumes:
+        - ./nginx/conf.d/:/etc/nginx/conf.d/
+        networks:
+        - app-network
+
+    #MySQL Service
+    admin_db:
+        image: mysql:5.7.32
+        container_name: admin_db
+        restart: unless-stopped
+        tty: true
+        ports:
+            - "33081:3306"
+        environment:
+            MYSQL_DATABASE: rabbitmq_db
+            MYSQL_ROOT_PASSWORD: root
+            SERVICE_TAGS: dev
+            SERVICE_NAME: mysql
+        volumes:
+            - dbdata:/var/lib/mysql/
+            - ./mysql/my.cnf:/etc/mysql/conf.d/my.cnf
+        networks:
+            - app-network
+
+    # phpMyAdmin Service for the first database
+    phpmyadminr:
+        image: phpmyadmin/phpmyadmin
+        container_name: phpmyadminr
+        restart: unless-stopped
+        environment:
+            PMA_HOST: admin_db
+            MYSQL_ROOT_PASSWORD: root
+            UPLOAD_LIMIT: 100M
+        ports:
+            - '8083:80'
+        networks:
+            - app-network
+
+#Docker Networks
+networks:
+  app-network:
+    driver: bridge
+
+#Volumes
+volumes:
+  dbdata:
+    driver: local
